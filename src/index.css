@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .scanlines {
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.22) 0px,
+      rgba(0, 0, 0, 0.22) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: multiply;
+  }
+
+  .crt-frame {
+    border: 4px double #b45309;
+    box-shadow:
+      0 0 0 1px #451a03,
+      0 0 24px rgba(245, 158, 11, 0.12),
+      inset 0 0 18px rgba(0, 0, 0, 0.9);
+  }
+
+  .crt-glow {
+    text-shadow:
+      0 0 6px rgba(251, 191, 36, 0.55),
+      0 0 18px rgba(251, 191, 36, 0.25);
+  }
+
+  .crt-glow-red {
+    text-shadow:
+      0 0 6px rgba(239, 68, 68, 0.6),
+      0 0 20px rgba(239, 68, 68, 0.3);
+  }
+}
