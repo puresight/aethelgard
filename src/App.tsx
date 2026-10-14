@@ -34,7 +34,17 @@ function LogBox({ log, turn }: { log: string[]; turn: number }) {
 }
 
 export default function App() {
-  const { state, restart } = useGameState();
+  const {
+    state,
+    restart,
+    townRest,
+    townBuyRations,
+    townUpgradeSword,
+    combatAttack,
+    combatParry,
+    combatFlee,
+    onTownTile,
+  } = useGameState();
   const { player, worldPos } = state;
 
   const stats = [
@@ -45,6 +55,12 @@ export default function App() {
     { label: 'DEF', value: String(player.defense), color: 'text-sky-400' },
     { label: 'LEVEL', value: String(player.level), color: 'text-cyan-400' },
     { label: 'EXP', value: String(player.exp), color: 'text-fuchsia-400' },
+  ];
+
+  const townActions = [
+    { key: 'H', label: 'Rest & Heal (+Full HP)', cost: 20, onClick: townRest },
+    { key: 'R', label: 'Buy Rations (+50 Food)', cost: 15, onClick: townBuyRations },
+    { key: 'U', label: 'Upgrade Sword (+5 Atk)', cost: 40, onClick: townUpgradeSword },
   ];
 
   return (
@@ -77,10 +93,8 @@ export default function App() {
           </h1>
           <div className="flex items-center gap-3 text-xs sm:text-sm">
             <span className="text-emerald-400">
-              {state.mode === 'DUNGEON'
+              {state.mode === 'DUNGEON' || state.mode === 'COMBAT'
                 ? `DUNGEON L${state.dungeonLevel}  X:${String(state.dungeonPos.x).padStart(2, '0')} Y:${String(state.dungeonPos.y).padStart(2, '0')}`
-                : state.mode === 'TOWN'
-                ? 'OAKHAVEN KEEP'
                 : `X:${String(worldPos.x).padStart(2, '0')} Y:${String(worldPos.y).padStart(2, '0')}`}
             </span>
             <span className="px-2 py-0.5 border border-amber-500 text-amber-400 text-[10px] tracking-widest bg-amber-950/40">
@@ -90,9 +104,69 @@ export default function App() {
         </header>
 
         {/* Main two-column area */}
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-          <div className="crt-frame p-2 bg-black">
+        <main className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 relative">
+          <div className="crt-frame p-2 bg-black relative">
             <GameCanvas state={state} />
+
+            {/* Floating town services HUD */}
+            {onTownTile && state.mode === 'OVERWORLD' && (
+              <div className="absolute inset-x-2 bottom-2 bg-neutral-950/95 border-2 border-amber-600 p-2 shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+                <div className="text-amber-500 text-[10px] tracking-[0.2em] mb-1.5 text-center">
+                  == OAKHAVEN KEEP ==
+                </div>
+                <div className="flex flex-col sm:flex-row gap-1.5">
+                  {townActions.map((a) => (
+                    <button
+                      key={a.key}
+                      onClick={a.onClick}
+                      className="flex-1 text-left px-2 py-1.5 border border-amber-800/70 bg-black/60 hover:bg-amber-950/60 transition-colors text-[10px] leading-tight"
+                    >
+                      <span className="text-amber-400 font-bold">[{a.key}]</span>
+                      <span className="text-neutral-300"> {a.label}</span>
+                      <span className="block text-amber-600/90 text-[9px] mt-0.5">{a.cost}g</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-neutral-600 text-[9px] mt-1.5 text-center">
+                  Walk away to leave. Movement stays free.
+                </p>
+              </div>
+            )}
+
+            {/* Combat action bar overlay */}
+            {state.mode === 'COMBAT' && state.combat && (
+              <div className="absolute inset-x-2 bottom-2 bg-neutral-950/95 border-2 border-red-700 p-2 shadow-[0_0_20px_rgba(220,38,38,0.3)]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-red-400 text-[11px] font-bold tracking-widest">
+                    {state.combat.monster.name}
+                  </span>
+                  <span className="text-red-300/80 text-[10px]">
+                    {state.combat.monster.hp}/{state.combat.monster.maxHp} HP
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-black border border-red-900 mb-2">
+                  <div
+                    className="h-full bg-red-500 transition-all duration-200"
+                    style={{ width: `${(state.combat.monster.hp / state.combat.monster.maxHp) * 100}%` }}
+                  />
+                </div>
+                <div className="flex gap-1.5">
+                  {[
+                    { key: 'A', label: 'Attack', onClick: combatAttack, color: 'border-red-700 text-red-400 hover:bg-red-950/60' },
+                    { key: 'P', label: 'Parry', onClick: combatParry, color: 'border-sky-700 text-sky-400 hover:bg-sky-950/60' },
+                    { key: 'F', label: 'Flee', onClick: combatFlee, color: 'border-neutral-600 text-neutral-400 hover:bg-neutral-900' },
+                  ].map((a) => (
+                    <button
+                      key={a.key}
+                      onClick={a.onClick}
+                      className={`flex-1 py-1.5 border bg-black/60 transition-colors text-[11px] ${a.color}`}
+                    >
+                      <span className="font-bold">[{a.key}]</span> {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <LogBox log={state.log} turn={state.log.length} />
         </main>
@@ -107,7 +181,7 @@ export default function App() {
               </div>
             ))}
           </div>
-          {state.mode === 'DUNGEON' && (
+          {(state.mode === 'DUNGEON' || state.mode === 'COMBAT') && (
             <div className="border border-emerald-900/60 bg-black/50 px-3 py-2 flex items-center justify-between">
               <span className="text-emerald-600 text-[10px] tracking-widest">LOCATION:</span>
               <span className="text-sm text-emerald-400">
@@ -115,18 +189,14 @@ export default function App() {
               </span>
             </div>
           )}
-          {state.mode === 'TOWN' && (
-            <div className="border border-amber-900/60 bg-black/50 px-3 py-2 flex items-center justify-between">
-              <span className="text-amber-600 text-[10px] tracking-widest">LOCATION:</span>
-              <span className="text-sm text-amber-400">Oakhaven Keep - Safe haven of the realm</span>
-            </div>
-          )}
           <p className="text-center text-[10px] tracking-wider text-neutral-500">
-            {state.mode === 'DUNGEON'
+            {state.mode === 'COMBAT'
+              ? '[A]: Attack  |  [P]: Parry  |  [F]: Flee'
+              : state.mode === 'DUNGEON'
               ? '[W/Up]: Advance  |  [A/D/Left/Right]: Turn  |  [S/Down]: Retreat  |  [Enter]: Use Ladder'
-              : state.mode === 'TOWN'
-              ? '[1-4]: Enter District  |  [Hotkeys]: Act  |  [B]: Back  |  [ESC/Enter/E]: Leave Town'
-              : '[WASD / Arrows]: Move  |  [Enter]: Enter Site'}
+              : onTownTile
+              ? '[H]: Heal  |  [R]: Rations  |  [U]: Upgrade Sword  |  [WASD]: Walk away'
+              : '[WASD / Arrows]: Move  |  [Enter]: Enter Dungeon'}
           </p>
         </footer>
       </div>

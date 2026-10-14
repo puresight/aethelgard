@@ -1,4 +1,4 @@
-export type GameMode = 'OVERWORLD' | 'DUNGEON' | 'TOWN' | 'COMBAT' | 'GAME_OVER';
+export type GameMode = 'OVERWORLD' | 'DUNGEON' | 'COMBAT' | 'GAME_OVER';
 
 export type Direction = 0 | 1 | 2 | 3;
 
@@ -23,11 +23,27 @@ export interface PlayerStats {
   hasChainmail: boolean;
 }
 
-export type TownSubMenu = 'MAIN' | 'TAVERN' | 'ARMORY' | 'TEMPLE' | 'JUSTICIAR';
-
 export interface Position {
   x: number;
   y: number;
+}
+
+export type MonsterKind = 'GIANT_RAT' | 'SKELETON' | 'GOBLIN_SKIRMISHER' | 'CAVE_TROLL' | 'WRAITH';
+
+export interface Monster {
+  kind: MonsterKind;
+  name: string;
+  hp: number;
+  maxHp: number;
+  attack: number;
+  goldReward: number;
+  expReward: number;
+}
+
+export interface CombatState {
+  monster: Monster;
+  playerParrying: boolean;
+  fled: boolean;
 }
 
 export interface GameState {
@@ -37,7 +53,8 @@ export interface GameState {
   dungeonPos: Position;
   dungeonDir: Direction;
   dungeonLevel: number;
-  townSubMenu: TownSubMenu;
+  inCombat: boolean;
+  combat: CombatState | null;
   log: string[];
 }
 
@@ -62,7 +79,8 @@ export function createInitialState(): GameState {
     dungeonPos: { x: 1, y: 1 },
     dungeonDir: 1,
     dungeonLevel: 1,
-    townSubMenu: 'MAIN',
+    inCombat: false,
+    combat: null,
     log: [
       'You awaken on the plains of Aethelgard. High Justiciar Vance calls for a champion.',
     ],
