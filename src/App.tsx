@@ -1,205 +1,158 @@
 import { useEffect, useRef } from 'react';
 import GameCanvas from '@/components/GameCanvas';
 import { useGameState } from '@/state/useGameState';
+import type { GameState } from '@/types/game';
 
-function LogBox({ log, turn }: { log: string[]; turn: number }) {
-  const boxRef = useRef<HTMLDivElement>(null);
-
+function Ticker({ log }: { log: string[] }) {
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = boxRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
   }, [log]);
+  const recent = log.slice(-2);
+  return (
+    <div
+      ref={ref}
+      className="h-10 overflow-hidden px-2 py-1 text-[11px] leading-relaxed text-emerald-400 bg-black/70 border-x-2 border-b-2 border-neutral-800 rounded-b-md"
+    >
+      {recent.map((m, i) => (
+        <p key={i} className="truncate">{m}</p>
+      ))}
+    </div>
+  );
+}
 
-  const firstShown = Math.max(0, log.length - 12);
-  const entries = log.map((msg, i) => ({ msg, turn: turn - (log.length - 1 - i) }));
+interface BtnProps {
+  label: string;
+  sub?: string;
+  onPress: () => void;
+  className?: string;
+}
+
+function TouchBtn({ label, sub, onPress, className = '' }: BtnProps) {
+  return (
+    <button
+      onPointerDown={(e) => {
+        e.preventDefault();
+        onPress();
+      }}
+      onContextMenu={(e) => e.preventDefault()}
+      className={`select-none rounded-lg border-2 active:scale-95 active:brightness-150 transition-transform touch-manipulation flex flex-col items-center justify-center leading-none ${className}`}
+      style={{ touchAction: 'manipulation' }}
+    >
+      <span>{label}</span>
+      {sub && <span className="text-[8px] opacity-70 mt-0.5">{sub}</span>}
+    </button>
+  );
+}
+
+function TouchDeck({ state, move, moveDungeon, rotateDungeon, action, restart }: {
+  state: GameState;
+  move: (dx: number, dy: number) => void;
+  moveDungeon: (s: number) => void;
+  rotateDungeon: (t: 1 | -1) => void;
+  action: () => void;
+  restart: () => void;
+}) {
+  if (state.mode === 'GAME_OVER') {
+    return (
+      <div className="w-full flex justify-center pb-2">
+        <button
+          onPointerDown={(e) => {
+            e.preventDefault();
+            restart();
+          }}
+          className="px-8 py-3 border-2 border-red-700 text-red-400 rounded-lg active:scale-95 active:brightness-150 text-sm tracking-widest bg-black/80"
+        >
+          TAP TO RESTART
+        </button>
+      </div>
+    );
+  }
+
+  if (state.mode === 'DUNGEON') {
+    return (
+      <div className="w-full grid grid-cols-2 gap-2 pb-2">
+        <div className="flex flex-col gap-1.5">
+          <TouchBtn label="↑ FWD" onPress={() => moveDungeon(1)} className="h-11 border-emerald-700 bg-emerald-950/60 text-emerald-300 text-sm" />
+          <div className="grid grid-cols-3 gap-1.5">
+            <TouchBtn label="↶" sub="TURN L" onPress={() => rotateDungeon(-1)} className="h-11 border-amber-700 bg-amber-950/60 text-amber-300 text-lg" />
+            <TouchBtn label="↓" sub="BACK" onPress={() => moveDungeon(-1)} className="h-11 border-neutral-700 bg-neutral-900 text-neutral-300 text-lg" />
+            <TouchBtn label="↷" sub="TURN R" onPress={() => rotateDungeon(1)} className="h-11 border-amber-700 bg-amber-950/60 text-amber-300 text-lg" />
+          </div>
+        </div>
+        <TouchBtn label="USE / ENTER" sub="ladder · chest" onPress={action} className="h-full min-h-[96px] border-amber-500 bg-amber-900/50 text-amber-200 text-sm tracking-wider" />
+      </div>
+    );
+  }
 
   return (
-    <div className="h-[320px] flex flex-col border-2 border-amber-700/60 bg-black/60 p-3">
-      <div className="text-amber-500 text-[10px] tracking-[0.25em] border-b border-amber-800/50 pb-2 mb-2">
-        :: SCROLL OF CHRONICLES ::
+    <div className="w-full grid grid-cols-2 gap-2 pb-2">
+      <div className="grid grid-cols-3 grid-rows-3 gap-1.5 w-36">
+        <div />
+        <TouchBtn label="↑" onPress={() => move(0, -1)} className="h-11 border-emerald-700 bg-emerald-950/60 text-emerald-300 text-lg" />
+        <div />
+        <TouchBtn label="←" onPress={() => move(-1, 0)} className="h-11 border-emerald-700 bg-emerald-950/60 text-emerald-300 text-lg" />
+        <div />
+        <TouchBtn label="→" onPress={() => move(1, 0)} className="h-11 border-emerald-700 bg-emerald-950/60 text-emerald-300 text-lg" />
+        <div />
+        <TouchBtn label="↓" onPress={() => move(0, 1)} className="h-11 border-emerald-700 bg-emerald-950/60 text-emerald-300 text-lg" />
+        <div />
       </div>
-      <div
-        ref={boxRef}
-        className="flex-1 overflow-y-auto text-emerald-400 text-[11px] leading-[1.7] pr-1 space-y-1"
-      >
-        {entries.slice(firstShown).map((e, i) => (
-          <p key={`${e.turn}-${i}`}>
-            <span className="text-amber-600/70 mr-2">[{String(e.turn).padStart(3, '0')}]</span>
-            {e.msg}
-          </p>
-        ))}
-      </div>
+      <TouchBtn label="ACTION" sub="enter · shrine" onPress={action} className="h-full min-h-[120px] border-amber-500 bg-amber-900/50 text-amber-200 text-base tracking-wider" />
     </div>
   );
 }
 
 export default function App() {
-  const {
-    state,
-    restart,
-    townRest,
-    townBuyRations,
-    townUpgradeSword,
-    combatAttack,
-    combatParry,
-    combatFlee,
-    onTownTile,
-  } = useGameState();
-  const { player, worldPos } = state;
-
-  const stats = [
-    { label: 'HP', value: `${player.hp}/${player.maxHp}`, color: 'text-red-400' },
-    { label: 'FOOD', value: String(player.food), color: 'text-emerald-400' },
-    { label: 'GOLD', value: String(player.gold), color: 'text-amber-400' },
-    { label: 'ATK', value: String(player.attack), color: 'text-orange-400' },
-    { label: 'DEF', value: String(player.defense), color: 'text-sky-400' },
-    { label: 'LEVEL', value: String(player.level), color: 'text-cyan-400' },
-    { label: 'EXP', value: String(player.exp), color: 'text-fuchsia-400' },
-  ];
-
-  const townActions = [
-    { key: 'H', label: 'Rest & Heal (+Full HP)', cost: 20, onClick: townRest },
-    { key: 'R', label: 'Buy Rations (+50 Food)', cost: 15, onClick: townBuyRations },
-    { key: 'U', label: 'Upgrade Sword (+5 Atk)', cost: 40, onClick: townUpgradeSword },
-  ];
+  const { state, restart, move, moveDungeon, rotateDungeon, action } = useGameState();
+  const { player } = state;
+  const hpRatio = player.hp / player.maxHp;
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-300 font-mono flex items-center justify-center p-4">
-      {/* CRT vignette + flicker overlay */}
-      <div className="pointer-events-none fixed inset-0 z-50" style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%)' }} />
-      <div className="scanlines pointer-events-none fixed inset-0 z-40" />
-
-      <div className="w-full max-w-5xl relative z-10">
-        {state.mode === 'GAME_OVER' && (
-          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/85">
-            <div className="text-center border-4 border-red-900 bg-neutral-950 px-10 py-8 shadow-[0_0_40px_rgba(220,38,38,0.3)]">
-              <h2 className="text-4xl font-bold tracking-[0.3em] text-red-500 crt-glow-red">GAME OVER</h2>
-              <p className="mt-4 text-sm text-red-300/80">
-                You perished in the wilds of Aethelgard.
-              </p>
-              <button
-                onClick={restart}
-                className="mt-6 px-6 py-2 border-2 border-red-700 text-red-400 text-xs tracking-widest hover:bg-red-950/60 hover:text-red-300 transition-colors"
-              >
-                [Press 'R' to Restart]
-              </button>
-            </div>
+    <div className="w-full max-w-md mx-auto min-h-screen flex flex-col justify-between p-2 sm:p-4 bg-neutral-950 text-neutral-100 select-none touch-none">
+      {/* Top sticky HUD */}
+      <div className="sticky top-0 z-20 bg-neutral-950/95 backdrop-blur-sm border-b-2 border-neutral-800 px-2 py-2 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-neutral-400 w-16 shrink-0">HP: {player.hp}/{player.maxHp}</span>
+          <div className="flex-1 h-3.5 bg-neutral-900 border border-neutral-700 rounded-sm overflow-hidden">
+            <div
+              className={`h-full transition-all duration-300 ${hpRatio > 0.5 ? 'bg-emerald-500' : hpRatio > 0.25 ? 'bg-amber-500' : 'bg-red-600'}`}
+              style={{ width: `${hpRatio * 100}%` }}
+            />
           </div>
-        )}
-        {/* Header */}
-        <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b-2 border-amber-700/60 pb-3 mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-[0.15em] text-amber-400 crt-glow">
-            AETHELGARD: DESCENT
-          </h1>
-          <div className="flex items-center gap-3 text-xs sm:text-sm">
-            <span className="text-emerald-400">
-              {state.mode === 'DUNGEON' || state.mode === 'COMBAT'
-                ? `DUNGEON L${state.dungeonLevel}  X:${String(state.dungeonPos.x).padStart(2, '0')} Y:${String(state.dungeonPos.y).padStart(2, '0')}`
-                : `X:${String(worldPos.x).padStart(2, '0')} Y:${String(worldPos.y).padStart(2, '0')}`}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <span className="px-1.5 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-300 text-[10px]">LVL {player.level}</span>
+          <span className="px-1.5 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300 text-[10px]">{player.gold}g</span>
+          <span className="px-1.5 py-0.5 rounded bg-red-950 border border-red-800 text-red-300 text-[10px]">ATK {player.attack} · {player.weapon}</span>
+          <span className="px-1.5 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-300 text-[10px]">DEF {player.defense} · {player.armor}</span>
+          {state.mode !== 'GAME_OVER' && (
+            <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-neutral-300 text-[10px]">
+              {state.mode === 'DUNGEON' ? `VAULTS L${state.dungeonLevel}` : `X${state.worldPos.x} Y${state.worldPos.y}`}
             </span>
-            <span className="px-2 py-0.5 border border-amber-500 text-amber-400 text-[10px] tracking-widest bg-amber-950/40">
-              {state.mode}
-            </span>
-          </div>
-        </header>
-
-        {/* Main two-column area */}
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 relative">
-          <div className="crt-frame p-2 bg-black relative">
-            <GameCanvas state={state} />
-
-            {/* Floating town services HUD */}
-            {onTownTile && state.mode === 'OVERWORLD' && (
-              <div className="absolute inset-x-2 bottom-2 bg-neutral-950/95 border-2 border-amber-600 p-2 shadow-[0_0_20px_rgba(245,158,11,0.25)]">
-                <div className="text-amber-500 text-[10px] tracking-[0.2em] mb-1.5 text-center">
-                  == OAKHAVEN KEEP ==
-                </div>
-                <div className="flex flex-col sm:flex-row gap-1.5">
-                  {townActions.map((a) => (
-                    <button
-                      key={a.key}
-                      onClick={a.onClick}
-                      className="flex-1 text-left px-2 py-1.5 border border-amber-800/70 bg-black/60 hover:bg-amber-950/60 transition-colors text-[10px] leading-tight"
-                    >
-                      <span className="text-amber-400 font-bold">[{a.key}]</span>
-                      <span className="text-neutral-300"> {a.label}</span>
-                      <span className="block text-amber-600/90 text-[9px] mt-0.5">{a.cost}g</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-neutral-600 text-[9px] mt-1.5 text-center">
-                  Walk away to leave. Movement stays free.
-                </p>
-              </div>
-            )}
-
-            {/* Combat action bar overlay */}
-            {state.mode === 'COMBAT' && state.combat && (
-              <div className="absolute inset-x-2 bottom-2 bg-neutral-950/95 border-2 border-red-700 p-2 shadow-[0_0_20px_rgba(220,38,38,0.3)]">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-red-400 text-[11px] font-bold tracking-widest">
-                    {state.combat.monster.name}
-                  </span>
-                  <span className="text-red-300/80 text-[10px]">
-                    {state.combat.monster.hp}/{state.combat.monster.maxHp} HP
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-black border border-red-900 mb-2">
-                  <div
-                    className="h-full bg-red-500 transition-all duration-200"
-                    style={{ width: `${(state.combat.monster.hp / state.combat.monster.maxHp) * 100}%` }}
-                  />
-                </div>
-                <div className="flex gap-1.5">
-                  {[
-                    { key: 'A', label: 'Attack', onClick: combatAttack, color: 'border-red-700 text-red-400 hover:bg-red-950/60' },
-                    { key: 'P', label: 'Parry', onClick: combatParry, color: 'border-sky-700 text-sky-400 hover:bg-sky-950/60' },
-                    { key: 'F', label: 'Flee', onClick: combatFlee, color: 'border-neutral-600 text-neutral-400 hover:bg-neutral-900' },
-                  ].map((a) => (
-                    <button
-                      key={a.key}
-                      onClick={a.onClick}
-                      className={`flex-1 py-1.5 border bg-black/60 transition-colors text-[11px] ${a.color}`}
-                    >
-                      <span className="font-bold">[{a.key}]</span> {a.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <LogBox log={state.log} turn={state.log.length} />
-        </main>
-
-        {/* Status bar */}
-        <footer className="border-t-2 border-amber-700/60 pt-3 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            {stats.map((s) => (
-              <div key={s.label} className="border border-amber-900/60 bg-black/50 px-3 py-2 flex items-center justify-between">
-                <span className="text-amber-600 text-[10px] tracking-widest">{s.label}:</span>
-                <span className={`text-sm tabular-nums ${s.color}`}>{s.value}</span>
-              </div>
-            ))}
-          </div>
-          {(state.mode === 'DUNGEON' || state.mode === 'COMBAT') && (
-            <div className="border border-emerald-900/60 bg-black/50 px-3 py-2 flex items-center justify-between">
-              <span className="text-emerald-600 text-[10px] tracking-widest">LOCATION:</span>
-              <span className="text-sm text-emerald-400">
-                The Abyssal Vaults - Level {state.dungeonLevel} (X: {state.dungeonPos.x}, Y: {state.dungeonPos.y})
-              </span>
-            </div>
           )}
-          <p className="text-center text-[10px] tracking-wider text-neutral-500">
-            {state.mode === 'COMBAT'
-              ? '[A]: Attack  |  [P]: Parry  |  [F]: Flee'
-              : state.mode === 'DUNGEON'
-              ? '[W/Up]: Advance  |  [A/D/Left/Right]: Turn  |  [S/Down]: Retreat  |  [Enter]: Use Ladder'
-              : onTownTile
-              ? '[H]: Heal  |  [R]: Rations  |  [U]: Upgrade Sword  |  [WASD]: Walk away'
-              : '[WASD / Arrows]: Move  |  [Enter]: Enter Dungeon'}
-          </p>
-        </footer>
+        </div>
       </div>
+
+      {/* Center viewport + ticker */}
+      <div className="flex-1 flex flex-col justify-center py-1">
+        <div className="w-full max-w-[480px] mx-auto overflow-hidden rounded-md border-2 border-neutral-800 shadow-lg bg-black">
+          <GameCanvas state={state} />
+        </div>
+        <div className="w-full max-w-[480px] mx-auto">
+          <Ticker log={state.log} />
+        </div>
+      </div>
+
+      {/* Bottom touch deck */}
+      <TouchDeck
+        state={state}
+        move={move}
+        moveDungeon={moveDungeon}
+        rotateDungeon={rotateDungeon}
+        action={action}
+        restart={restart}
+      />
     </div>
   );
 }
